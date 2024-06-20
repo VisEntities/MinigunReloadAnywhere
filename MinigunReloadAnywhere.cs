@@ -13,6 +13,7 @@ namespace Oxide.Plugins
 
         private static MinigunReloadAnywhere _plugin;
         private static Configuration _config;
+
         private const string FX_MINIGUN_RELOAD = "assets/prefabs/weapons/minigun/effects/minigun-reload.prefab";
         private Dictionary<BasePlayer, GunReloaderComponent> _gunReloaders = new Dictionary<BasePlayer, GunReloaderComponent>();
 
@@ -68,7 +69,7 @@ namespace Oxide.Plugins
             return new Configuration
             {
                 Version = Version.ToString(),
-                ReloadCooldownSeconds = 5f
+                ReloadCooldownSeconds = 10f
             };
         }
 
@@ -214,9 +215,17 @@ namespace Oxide.Plugins
 
             private void Update()
             {
-                if (_playerInput.WasJustPressed(BUTTON.RELOAD) && !_reloadButtonPressed && !HasReloadCooldown())
+                if (_playerInput.WasJustPressed(BUTTON.RELOAD) && !_reloadButtonPressed)
                 {
-                    TryReload();
+                    if (!HasReloadCooldown())
+                    {
+                        TryReload();
+                    }
+                    else
+                    {
+                        float remainingCooldown = _nextReloadTime - Time.realtimeSinceStartup;
+                        _plugin.SendMessage(_player, Lang.ReloadCooldown, remainingCooldown.ToString("F1"));
+                    }
                     _reloadButtonPressed = true;
                 }
                 else if (_playerInput.WasJustReleased(BUTTON.RELOAD))
@@ -295,5 +304,31 @@ namespace Oxide.Plugins
         }
 
         #endregion Permissions
+
+        #region Localization
+
+        private class Lang
+        {
+            public const string ReloadCooldown = "ReloadCooldown";
+        }
+
+        protected override void LoadDefaultMessages()
+        {
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                [Lang.ReloadCooldown] = "You can reload again in {0} seconds.",
+            }, this, "en");
+        }
+
+        private void SendMessage(BasePlayer player, string messageKey, params object[] args)
+        {
+            string message = lang.GetMessage(messageKey, this, player.UserIDString);
+            if (args.Length > 0)
+                message = string.Format(message, args);
+
+            SendReply(player, message);
+        }
+
+        #endregion Localization
     }
 }
