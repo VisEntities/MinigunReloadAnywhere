@@ -1,11 +1,18 @@
-﻿using Newtonsoft.Json;
+﻿/*
+ * Copyright (C) 2024 Game4Freak.io
+ * This mod is provided under the Game4Freak EULA.
+ * Full legal terms can be found at https://game4freak.io/eula/
+ */
+
+using Network;
+using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Minigun Reload Anywhere", "VisEntities", "1.0.0")]
+    [Info("Minigun Reload Anywhere", "VisEntities", "1.2.0")]
     [Description("Allows reloading the minigun anywhere without needing a workbench.")]
     public class MinigunReloadAnywhere : RustPlugin
     {
@@ -14,7 +21,7 @@ namespace Oxide.Plugins
         private static MinigunReloadAnywhere _plugin;
         private static Configuration _config;
 
-        private const string FX_MINIGUN_RELOAD = "assets/prefabs/weapons/minigun/effects/minigun-reload.prefab";
+        private const string FX_RELOAD = "assets/prefabs/weapons/minigun/effects/minigun-reload.prefab";
         private Dictionary<BasePlayer, GunReloaderComponent> _gunReloaders = new Dictionary<BasePlayer, GunReloaderComponent>();
 
         #endregion Fields
@@ -174,13 +181,13 @@ namespace Oxide.Plugins
             private BasePlayer _player;
             private InputState _playerInput;
 
-            private bool _reloadButtonPressed = false;
             private float _reloadCooldownSeconds;
+            private bool _reloadButtonPressed = false;
             private float _nextReloadTime = float.NegativeInfinity;
-            
+
             #endregion Fields
 
-            #region Component Management
+            #region Component Initialization
 
             public static GunReloaderComponent InstallComponent(BasePlayer player, Item item)
             {
@@ -209,7 +216,7 @@ namespace Oxide.Plugins
                 DestroyImmediate(this);
             }
 
-            #endregion Component Management
+            #endregion Component Initialization
 
             #region Component Lifecycle
 
@@ -224,7 +231,10 @@ namespace Oxide.Plugins
                     else
                     {
                         float remainingCooldown = _nextReloadTime - Time.realtimeSinceStartup;
-                        _plugin.SendMessage(_player, Lang.ReloadCooldown, remainingCooldown.ToString("F1"));
+                        string formattedCooldown = FormatTime(remainingCooldown, compactFormat: true);
+
+                        MessagePlayer(_player, Lang.ReloadCooldown, formattedCooldown);
+                        ShowToast(_player, Lang.ReloadCooldown, GameTip.Styles.Blue_Normal, formattedCooldown);
                     }
                     _reloadButtonPressed = true;
                 }
@@ -259,7 +269,7 @@ namespace Oxide.Plugins
 
                 if (weapon.TryReloadMagazine(_player.inventory, ammoNeeded))
                 {
-                    Effect.server.Run(FX_MINIGUN_RELOAD, _player.eyes.position, default, null, false);
+                    RunEffectAttachedToEntity(FX_RELOAD, _player);
                     StartReloadCooldown(_reloadCooldownSeconds);
                 }
             }
@@ -272,12 +282,60 @@ namespace Oxide.Plugins
             private bool HasReloadCooldown()
             {
                 return Time.realtimeSinceStartup < _nextReloadTime;
-            }
+            }          
 
             #endregion Reloading
         }
 
         #endregion Gun Reloader Component
+
+        #region Helper Functions
+
+        public static string FormatTime(float time, bool compactFormat = true)
+        {
+            int hours = Mathf.FloorToInt(time / 3600f);
+            int minutes = Mathf.FloorToInt((time % 3600) / 60f);
+            int seconds = Mathf.FloorToInt(time % 60);
+
+            if (compactFormat)
+            {
+                if (hours > 0)
+                {
+                    return $"{hours}h {minutes}m";
+                }
+                else if (minutes > 0)
+                {
+                    return $"{minutes}m {seconds}s";
+                }
+                else
+                {
+                    return $"{seconds}s";
+                }
+            }
+            else
+            {
+                if (hours > 0)
+                {
+                    return $"{hours:D2}:{minutes:D2}:{seconds:D2}";
+                }
+                else if (minutes > 0)
+                {
+                    return $"{minutes:D2}:{seconds:D2}";
+                }
+                else
+                {
+                    return $"{seconds:D2}";
+                }
+            }
+        }
+
+        public static void RunEffectAttachedToEntity(string effectName, BaseEntity attachedEntity, uint entityBoneID = 0u, Vector3 localPosition = default(Vector3),
+            Vector3 localDirection = default(Vector3), Connection effectSourceConnection = null, bool shouldBroadcastToAllPlayers = false, List<Connection> targetConnections = null)
+        {
+            Effect.server.Run(effectName, attachedEntity, entityBoneID, localPosition, localDirection, effectSourceConnection, shouldBroadcastToAllPlayers, targetConnections);
+        }
+
+        #endregion Helper Functions
 
         #region Permissions
 
@@ -320,13 +378,26 @@ namespace Oxide.Plugins
             }, this, "en");
         }
 
-        private void SendMessage(BasePlayer player, string messageKey, params object[] args)
+        private static string GetMessage(BasePlayer player, string messageKey, params object[] args)
         {
-            string message = lang.GetMessage(messageKey, this, player.UserIDString);
+            string message = _plugin.lang.GetMessage(messageKey, _plugin, player.UserIDString);
+
             if (args.Length > 0)
                 message = string.Format(message, args);
 
-            SendReply(player, message);
+            return message;
+        }
+
+        public static void MessagePlayer(BasePlayer player, string messageKey, params object[] args)
+        {
+            string message = GetMessage(player, messageKey, args);
+            _plugin.SendReply(player, message);
+        }
+
+        public static void ShowToast(BasePlayer player, string messageKey, GameTip.Styles style = GameTip.Styles.Blue_Normal, params object[] args)
+        {
+            string message = GetMessage(player, messageKey, args);
+            player.SendConsoleCommand("gametip.showtoast", (int)style, message);
         }
 
         #endregion Localization
