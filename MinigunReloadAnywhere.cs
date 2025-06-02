@@ -13,7 +13,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Minigun Reload Anywhere", "VisEntities", "1.3.0")]
+    [Info("Minigun Reload Anywhere", "VisEntities", "1.4.0")]
     [Description("Allows reloading the minigun anywhere without needing a workbench.")]
     public class MinigunReloadAnywhere : RustPlugin
     {
@@ -260,6 +260,22 @@ namespace Oxide.Plugins
 
                             if (_config.EnableToastNotifications)
                                 ShowToast(_player, Lang.MagazineFull, GameTip.Styles.Blue_Normal);
+
+                            _warnSent = true;
+                        }
+                        return;
+                    }
+
+                    ItemDefinition ammoDef = weapon.primaryMagazine.ammoType;
+                    int ammoCount = _player.inventory.GetAmount(ammoDef.itemid);
+                    if (ammoCount <= 0)
+                    {
+                        if (!_warnSent)
+                        {
+                            MessagePlayer(_player, Lang.NoAmmo);
+
+                            if (_config.EnableToastNotifications)
+                                ShowToast(_player, Lang.NoAmmo, GameTip.Styles.Blue_Normal);
 
                             _warnSent = true;
                         }
