@@ -236,6 +236,7 @@ namespace Oxide.Plugins
                         {
                             float remaining = _nextReloadTime - Time.realtimeSinceStartup;
                             string txt = FormatTime(remaining, true);
+
                             MessagePlayer(_player, Lang.ReloadCooldown, txt);
 
                             if (_config.EnableToastNotifications)
@@ -261,6 +262,13 @@ namespace Oxide.Plugins
 
                             _warnSent = true;
                         }
+                        return;
+                    }
+
+                    if (_config.ReloadDurationSeconds <= 0f)
+                    {
+                        DoReload();
+                        _nextReloadTime = Time.realtimeSinceStartup + _config.ReloadCooldownSeconds;
                         return;
                     }
 
