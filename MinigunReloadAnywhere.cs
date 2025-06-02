@@ -199,6 +199,7 @@ namespace Oxide.Plugins
             private float _heldTime;
             private float _nextReloadTime = float.NegativeInfinity;
             private bool _warnSent;
+            private float _holdStart;
 
             public static GunReloaderComponent Install(BasePlayer player, Item item)
             {
@@ -228,7 +229,7 @@ namespace Oxide.Plugins
 
             private void Update()
             {
-                if (_playerInput.WasJustPressed(BUTTON.RELOAD))
+                if (_playerInput.IsDown(BUTTON.RELOAD) && !_buttonHeld)
                 {
                     if (Time.realtimeSinceStartup < _nextReloadTime)
                     {
@@ -273,37 +274,32 @@ namespace Oxide.Plugins
                     }
 
                     _buttonHeld = true;
-                    _heldTime = 0f;
+                    _holdStart = Time.realtimeSinceStartup;
                     ReloadUi.Show(_player, 0f);
                     return;
                 }
 
                 if (_buttonHeld && _playerInput.IsDown(BUTTON.RELOAD))
                 {
-                    _heldTime += Time.deltaTime;
-                    ReloadUi.Show(_player, _heldTime / _config.ReloadDurationSeconds);
+                    float held = Time.realtimeSinceStartup - _holdStart;
+                    float ratio = held / _config.ReloadDurationSeconds;
+                    ReloadUi.Show(_player, ratio);
 
-                    if (_heldTime >= _config.ReloadDurationSeconds)
+                    if (held >= _config.ReloadDurationSeconds)
                     {
                         DoReload();
                         ReloadUi.Hide(_player);
                         _buttonHeld = false;
-                        _heldTime = 0f;
                         _nextReloadTime = Time.realtimeSinceStartup + _config.ReloadCooldownSeconds;
                     }
                     return;
                 }
 
-                if (_playerInput.WasJustReleased(BUTTON.RELOAD))
+                if (_buttonHeld && _playerInput.WasJustReleased(BUTTON.RELOAD))
                 {
+                    _buttonHeld = false;
                     _warnSent = false;
-
-                    if (_buttonHeld)
-                    {
-                        _buttonHeld = false;
-                        _heldTime = 0f;
-                        ReloadUi.Hide(_player);
-                    }
+                    ReloadUi.Hide(_player);
                 }
             }
 
@@ -411,6 +407,7 @@ namespace Oxide.Plugins
         {
             public const string ReloadCooldown = "ReloadCooldown";
             public const string MagazineFull = "MagazineFull";
+            public const string NoAmmo = "NoAmmo";
         }
 
         protected override void LoadDefaultMessages()
@@ -419,6 +416,7 @@ namespace Oxide.Plugins
             {
                 [Lang.ReloadCooldown] = "You can reload again in {0} seconds.",
                 [Lang.MagazineFull] = "Your minigun is already fully loaded.",
+                [Lang.NoAmmo] = "You have no ammo to reload your minigun.",
 
             }, this, "en");
         }
