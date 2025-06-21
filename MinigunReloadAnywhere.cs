@@ -13,7 +13,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Minigun Reload Anywhere", "VisEntities", "1.4.0")]
+    [Info("Minigun Reload Anywhere", "VisEntities", "1.4.1")]
     [Description("Allows reloading the minigun anywhere without needing a workbench.")]
     public class MinigunReloadAnywhere : RustPlugin
     {
@@ -229,6 +229,13 @@ namespace Oxide.Plugins
 
             private void Update()
             {
+                Item active = _player.GetActiveItem();
+                if (active == null || active.uid != _item.uid)
+                {
+                    DestroySelf();
+                    return;
+                }
+
                 if (_playerInput.IsDown(BUTTON.RELOAD) && !_buttonHeld)
                 {
                     if (Time.realtimeSinceStartup < _nextReloadTime)
